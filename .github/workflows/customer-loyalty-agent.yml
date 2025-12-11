@@ -1,0 +1,132 @@
+name: Customer Loyalty Agent Workflow
+
+on:
+  push:
+    paths:
+      - 'src/app/agents/customerLoyaltyAgent_initializer.py'
+      - 'src/prompts/CustomerLoyaltyAgentPrompt.txt'
+      - 'src/app/tools/discountLogic.py'
+    branches: [ main, develop ]
+  pull_request:
+    paths:
+      - 'src/app/agents/customerLoyaltyAgent_initializer.py'
+      - 'src/prompts/CustomerLoyaltyAgentPrompt.txt'
+      - 'src/app/tools/discountLogic.py'
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  run-customer-loyalty-agent:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r src/requirements.txt
+    
+    - name: Create .env file from secrets
+      run: |
+        echo "${{ secrets.ENV }}" > src/.env
+    
+    - name: Azure CLI Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Set up Azure CLI and authenticate
+      run: |
+        # Ensure Azure CLI is available and authenticated
+        az account show
+        
+        # Set additional environment variables for Azure AI Projects
+        echo "AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
+        echo "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" >> $GITHUB_ENV
+        echo "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+    
+    - name: Validate environment variables
+      run: |
+        cd src
+        python -c "
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        required_vars = [
+            'AZURE_AI_AGENT_ENDPOINT',
+            'AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME'
+        ]
+        
+        missing_vars = []
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            print(f'Missing required environment variables: {missing_vars}')
+            exit(1)
+        else:
+            print('All required environment variables are present')
+        "
+    
+    - name: Run Customer Loyalty Agent Initializer
+      run: |
+        cd src
+        python -m app.agents.customerLoyaltyAgent_initializer
+      env:
+        PYTHONPATH: ${{ github.workspace }}/src
+    
+    - name: Validate agent initialization
+      run: |
+        cd src
+        python -c "
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        # Basic validation that the script ran successfully
+        agent_env_var = os.getenv('customer_loyalty')
+        if agent_env_var:
+            print(f'Customer loyalty agent initialized successfully: {agent_env_var[:50]}...')
+        else:
+            print('Warning: Customer loyalty agent environment variable not found')
+        "
+    
+    - name: Run discount logic validation
+      run: |
+        cd src
+        python -c "
+        import sys
+        sys.path.append('.')
+        from app.tools.discountLogic import *
+        print('Discount logic module imported successfully')
+        "
+      env:
+        PYTHONPATH: ${{ github.workspace }}/src
+    
+    - name: Clean up secrets
+      if: always()
+      run: |
+        rm -f src/.env
+    
+    - name: Upload logs as artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-logs-${{ github.run_id }}
+        path: |
+          src/*.log
+          src/logs/
+        retention-days: 7
