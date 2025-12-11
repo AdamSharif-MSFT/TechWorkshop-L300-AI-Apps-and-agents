@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY_NAME: your-registry-name # Update this with your ACR name
-  IMAGE_NAME: tech-workshop-app
+  REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_USERNAME }} # Update this with your ACR name
+  IMAGE_NAME: chat-app
   
 jobs:
   build-and-deploy:
