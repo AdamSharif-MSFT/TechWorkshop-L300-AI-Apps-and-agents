@@ -21,8 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the code
 COPY . .
 
-# Copy .env file into the image (for python-dotenv)
-COPY .env .env
+# The .env file will be created during the GitHub Actions build process
 
 # Expose the port (default FastAPI/uvicorn port)
 EXPOSE 8000

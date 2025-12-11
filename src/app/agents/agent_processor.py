@@ -8,6 +8,7 @@ from azure.ai.agents.models import (
     MessageInputImageUrlBlock,
     FunctionTool, ToolSet
 )
+from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor
 
 # Import MCP client for tool execution
 import sys
@@ -21,7 +22,6 @@ from azure.ai.agents.telemetry import trace_function
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time
-# from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor
 
 # # Enable Azure Monitor tracing
 application_insights_connection_string = os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"]
